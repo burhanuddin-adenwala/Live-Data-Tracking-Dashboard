@@ -21,9 +21,6 @@ def load_data(uploaded_files):
             data.columns = data.iloc[0]
             data = data[1:]
 
-            # Log the detected columns for debugging
-            st.write(f"Columns detected in {uploaded_file.name}: {list(data.columns)}")
-
             # If 'File Name' column is missing, add it
             if 'File Name' not in data.columns:
                 data['File Name'] = uploaded_file.name
@@ -33,11 +30,8 @@ def load_data(uploaded_files):
                 if col not in data.columns:
                     data[col] = None  # Fill missing columns with None (or empty values)
 
-            # Select only required columns for consistency
-            data = data[required_columns]
-
             # Append data to the combined DataFrame
-            all_data = pd.concat([all_data, data], ignore_index=True)
+            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
 
     return all_data
 
