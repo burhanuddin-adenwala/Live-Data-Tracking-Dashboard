@@ -1,19 +1,37 @@
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+from openpyxl import load_workbook
 
 def load_data(uploaded_files):
     # Initialize an empty DataFrame to store combined data
     all_data = pd.DataFrame()
+    required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
 
     # Loop through uploaded files
     for uploaded_file in uploaded_files:
         if uploaded_file.name.endswith(".xlsx"):
-            data = pd.read_excel(uploaded_file)
+            # Load the workbook with openpyxl
+            workbook = load_workbook(uploaded_file, data_only=True)
+            sheet = workbook.active
 
-            # Add the filename to the data
-            data['File Name'] = uploaded_file.name
-            all_data = pd.concat([all_data, data[['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']]], ignore_index=True)
+            # Extract all data, including hidden columns
+            data = pd.DataFrame(sheet.values)
+            # Set first row as header
+            data.columns = data.iloc[0]
+            data = data[1:]
+
+            # If 'File Name' column is missing, add it
+            if 'File Name' not in data.columns:
+                data['File Name'] = uploaded_file.name
+
+            # Ensure all required columns are present in the DataFrame
+            for col in required_columns:
+                if col not in data.columns:
+                    data[col] = None  # Fill missing columns with None (or empty values)
+
+            # Append data to the combined DataFrame
+            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
 
     return all_data
 
