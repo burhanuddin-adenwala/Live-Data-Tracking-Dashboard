@@ -36,7 +36,7 @@ def load_data(uploaded_files):
     return all_data
 
 def main():
-    st.title("Live Data Tracking Dashboard")
+    st.title("EU Data Tracking Dashboard")
 
     # File uploader for Excel files
     uploaded_files = st.file_uploader("Choose Excel files", type="xlsx", accept_multiple_files=True)
