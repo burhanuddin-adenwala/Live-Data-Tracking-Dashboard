@@ -4,54 +4,114 @@ import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 
 def load_data(uploaded_files):
+    # Initialize an empty DataFrame to store combined data
     all_data = pd.DataFrame()
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
 
+    # Loop through uploaded files
     for uploaded_file in uploaded_files:
+        st.write(f"Processing file: {uploaded_file.name}")
+        
         if uploaded_file.name.endswith(".xlsx"):
+            # Load the workbook with openpyxl
             workbook = load_workbook(uploaded_file, data_only=True)
             sheet = workbook.active
-
-            # Extract data including hidden columns
+            
+            # Extract all data, including hidden columns
             data = pd.DataFrame(sheet.values)
-
-            # Set the first row as the header if not already set
+            
+            # Set first row as header
             data.columns = data.iloc[0]
-            data = data[1:]  # Remove the header row
+            data = data[1:]
+            data = data.loc[:, ~data.columns.duplicated()]  # Remove duplicate columns if any
 
-            # Remove duplicate columns
-            data = data.loc[:, ~data.columns.duplicated()]
+            st.write("Column names after loading and deduplication:", data.columns.tolist())
 
-            # Standardize column names to avoid casing issues and trailing spaces
-            data.columns = data.columns.str.strip().str.upper()
-
-            # Ensure each required column exists, or create it with None values
-            for col in required_columns:
-                if col.upper() not in data.columns:
-                    data[col] = None
-
-            # Set 'File Name' column based on the uploaded file name if it’s missing
+            # If 'File Name' column is missing, add it
             if 'File Name' not in data.columns:
                 data['File Name'] = uploaded_file.name
 
-            # Select only the required columns to ensure consistent structure
-            data = data.reindex(columns=required_columns)
+            # Ensure all required columns are present in the DataFrame
+            for col in required_columns:
+                if col not in data.columns:
+                    data[col] = None  # Fill missing columns with None (or empty values)
 
-            # Append to the main DataFrame
-            all_data = pd.concat([all_data, data], ignore_index=True)
+            # Final column verification before concatenation
+            data = data.reindex(columns=required_columns)  # Reindex to ensure order and presence of required columns
+            st.write(f"Data preview for {uploaded_file.name}:", data.head())
+            
+            # Append data to the combined DataFrame
+            if not data.empty:
+                all_data = pd.concat([all_data, data], ignore_index=True)
+            else:
+                st.warning(f"No data found in file {uploaded_file.name}")
 
+    st.write("Final combined data preview:", all_data.head())
     return all_data
 
 def main():
     st.title("Live Data Tracking Dashboard")
+
+    # File uploader for Excel files
     uploaded_files = st.file_uploader("Choose Excel files", type="xlsx", accept_multiple_files=True)
 
+    # Button to load files
     if st.button("Load Files") and uploaded_files:
         all_data = load_data(uploaded_files)
 
         if not all_data.empty:
-            st.success("Data loaded successfully!")
-            # Additional processing and visualization code...
+            # Ensure STATUS is capitalized
+            all_data['STATUS'] = all_data['STATUS'].str.upper()
+
+            # Detailed User Information by File Name
+            st.subheader("Detailed User Information by File Name")
+
+            # Aggregate counts by File Name and User
+            user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).agg(
+                Total_Count=('PRODUCT_DESCRIPTION', 'count'),
+                Completed_Count=('STATUS', lambda x: (x == 'COMPLETED').sum()),
+                Pending_Count=('STATUS', lambda x: (x == 'PENDING').sum())
+            ).reset_index()
+
+            # Date-wise counts in columns
+            date_counts = all_data.pivot_table(index=['File Name', 'ALLOCATED TO'], 
+                                                columns='DATE', 
+                                                values='STATUS', 
+                                                aggfunc=lambda x: len(x)).fillna(0)
+
+            # Merge the two DataFrames
+            user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
+
+            # Show user summary with expanded width
+            st.dataframe(user_summary, use_container_width=True)
+
+            # Visualization of Completed and Pending Counts
+            st.subheader("Status Overview")
+            status_counts = user_summary[['File Name', 'ALLOCATED TO', 'Completed_Count', 'Pending_Count']]
+            status_counts.set_index(['File Name', 'ALLOCATED TO']).plot(kind='bar', stacked=True, figsize=(10, 6))
+            plt.title('Completed vs Pending Counts')
+            plt.ylabel('Count')
+            plt.xlabel('File Name and User')
+            st.pyplot(plt)
+
+            # Pie Chart for Status Distribution
+            st.subheader("Status Distribution")
+            status_distribution = all_data['STATUS'].value_counts()
+            plt.figure(figsize=(6, 6))
+            plt.pie(status_distribution, labels=status_distribution.index, autopct='%1.1f%%', startangle=90, colors=['#4CAF50', '#FF9800'])
+            plt.title("Distribution of Completed and Pending Tasks")
+            st.pyplot(plt)
+
+            # Bar Chart for Total Product Count per User
+            st.subheader("Total Product Count per User")
+            product_counts = all_data.groupby('ALLOCATED TO')['PRODUCT_DESCRIPTION'].count().reset_index()
+            plt.figure(figsize=(10, 6))
+            plt.bar(product_counts['ALLOCATED TO'], product_counts['PRODUCT_DESCRIPTION'], color='#2196F3')
+            plt.title("Total Product Count per User")
+            plt.ylabel("Total Count")
+            plt.xticks(rotation=45)
+            st.pyplot(plt)
+
         else:
             st.warning("No data found in the uploaded files.")
     else:
