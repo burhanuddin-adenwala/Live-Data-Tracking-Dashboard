@@ -9,41 +9,33 @@ def load_data(uploaded_files):
 
     for uploaded_file in uploaded_files:
         if uploaded_file.name.endswith(".xlsx"):
-            # Load the workbook with openpyxl
             workbook = load_workbook(uploaded_file, data_only=True)
             sheet = workbook.active
 
-            # Extract all data, including hidden columns
+            # Extract data including hidden columns
             data = pd.DataFrame(sheet.values)
 
-            # Set first row as header
+            # Set the first row as header if not already set
             data.columns = data.iloc[0]
-            data = data[1:]
+            data = data[1:]  # Remove the header row
 
-            # Standardize column names by stripping whitespace and converting to uppercase
+            # Standardize column names
             data.columns = data.columns.str.strip().str.upper()
 
-            # Rename columns to match required columns if they have slight variations
-            column_mapping = {
-                'ALLOCATED TO': 'ALLOCATED TO', 
-                'STATUS': 'STATUS', 
-                'PRODUCT_DESCRIPTION': 'PRODUCT_DESCRIPTION', 
-                'DATE': 'DATE',
-                'FILE NAME': 'File Name'
-            }
-            data.rename(columns=column_mapping, inplace=True)
-
-            # If 'File Name' column is missing, add it
+            # Check if each required column exists, and if not, add it with None values
+            for col in required_columns:
+                if col.upper() not in data.columns:
+                    data[col] = None
+            
+            # Set 'File Name' column based on the uploaded file name
             if 'File Name' not in data.columns:
                 data['File Name'] = uploaded_file.name
 
-            # Ensure all required columns are present in the DataFrame
-            for col in required_columns:
-                if col not in data.columns:
-                    data[col] = None
+            # Select only the required columns to ensure consistent structure
+            data = data.reindex(columns=required_columns)
 
-            # Append data to the combined DataFrame
-            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+            # Append to the main dataframe
+            all_data = pd.concat([all_data, data], ignore_index=True)
 
     return all_data
 
