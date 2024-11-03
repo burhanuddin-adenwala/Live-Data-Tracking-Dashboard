@@ -15,26 +15,29 @@ def load_data(uploaded_files):
             # Extract data including hidden columns
             data = pd.DataFrame(sheet.values)
 
-            # Set the first row as header if not already set
+            # Set the first row as the header if not already set
             data.columns = data.iloc[0]
             data = data[1:]  # Remove the header row
 
-            # Standardize column names
+            # Remove duplicate columns
+            data = data.loc[:, ~data.columns.duplicated()]
+
+            # Standardize column names to avoid casing issues and trailing spaces
             data.columns = data.columns.str.strip().str.upper()
 
-            # Check if each required column exists, and if not, add it with None values
+            # Ensure each required column exists, or create it with None values
             for col in required_columns:
                 if col.upper() not in data.columns:
                     data[col] = None
-            
-            # Set 'File Name' column based on the uploaded file name
+
+            # Set 'File Name' column based on the uploaded file name if it’s missing
             if 'File Name' not in data.columns:
                 data['File Name'] = uploaded_file.name
 
             # Select only the required columns to ensure consistent structure
             data = data.reindex(columns=required_columns)
 
-            # Append to the main dataframe
+            # Append to the main DataFrame
             all_data = pd.concat([all_data, data], ignore_index=True)
 
     return all_data
