@@ -30,6 +30,16 @@ def load_data(uploaded_files):
                 if col not in data.columns:
                     data[col] = None  # Fill missing columns with None (or empty values)
 
+            # Check for duplicate column names
+            data.columns = pd.Series(data.columns).str.strip()  # Strip whitespace
+            if data.columns.duplicated().any():
+                data.columns = [f"{col}_{i}" if data.columns.duplicated()[i] else col for i, col in enumerate(data.columns)]
+
+            # Print debugging information
+            print(f"Processing file: {uploaded_file.name}")
+            print(f"Columns in this file: {data.columns.tolist()}")
+            print(data.head())
+
             # Append data to the combined DataFrame
             all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
 
@@ -54,7 +64,7 @@ def main():
 
             # Aggregate counts by File Name and User
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).agg(
-                Total_Count=('PRODUCT_DESCRIPTION', 'count'),
+                Total_Count=('PRODUCT_DESCRIPTION', 'count'),  # Total data count
                 Completed_Count=('STATUS', lambda x: (x == 'COMPLETED').sum()),
                 Pending_Count=('STATUS', lambda x: (x == 'PENDING').sum())
             ).reset_index()
