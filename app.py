@@ -10,22 +10,16 @@ def load_data(uploaded_files):
 
     # Loop through uploaded files
     for uploaded_file in uploaded_files:
-        st.write(f"Processing file: {uploaded_file.name}")
-        
         if uploaded_file.name.endswith(".xlsx"):
             # Load the workbook with openpyxl
             workbook = load_workbook(uploaded_file, data_only=True)
             sheet = workbook.active
-            
+
             # Extract all data, including hidden columns
             data = pd.DataFrame(sheet.values)
-            
             # Set first row as header
             data.columns = data.iloc[0]
             data = data[1:]
-            data = data.loc[:, ~data.columns.duplicated()]  # Remove duplicate columns if any
-
-            st.write("Column names after loading and deduplication:", data.columns.tolist())
 
             # If 'File Name' column is missing, add it
             if 'File Name' not in data.columns:
@@ -36,17 +30,9 @@ def load_data(uploaded_files):
                 if col not in data.columns:
                     data[col] = None  # Fill missing columns with None (or empty values)
 
-            # Final column verification before concatenation
-            data = data.reindex(columns=required_columns)  # Reindex to ensure order and presence of required columns
-            st.write(f"Data preview for {uploaded_file.name}:", data.head())
-            
             # Append data to the combined DataFrame
-            if not data.empty:
-                all_data = pd.concat([all_data, data], ignore_index=True)
-            else:
-                st.warning(f"No data found in file {uploaded_file.name}")
+            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
 
-    st.write("Final combined data preview:", all_data.head())
     return all_data
 
 def main():
