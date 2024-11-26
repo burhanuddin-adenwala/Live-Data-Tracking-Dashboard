@@ -5,43 +5,44 @@ from openpyxl import load_workbook
 import zipfile
 import io
 
-def load_data_from_zip(uploaded_zip):
+def load_data_from_multiple_zips(uploaded_zips):
     all_data = pd.DataFrame()
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
-    
-    with zipfile.ZipFile(uploaded_zip) as z:
-        for file_name in z.namelist():
-            if file_name.endswith(".xlsx"):
-                with z.open(file_name) as file:
-                    try:
-                        workbook = load_workbook(file, data_only=True)
-                        sheet = workbook.active
-                        data = pd.DataFrame(sheet.values)
-                        data.columns = data.iloc[0]
-                        data = data[1:]
 
-                        # Add 'File Name' column if missing
-                        if 'File Name' not in data.columns:
-                            data['File Name'] = file_name
+    for uploaded_zip in uploaded_zips:
+        with zipfile.ZipFile(uploaded_zip) as z:
+            for file_name in z.namelist():
+                if file_name.endswith(".xlsx"):
+                    with z.open(file_name) as file:
+                        try:
+                            workbook = load_workbook(file, data_only=True)
+                            sheet = workbook.active
+                            data = pd.DataFrame(sheet.values)
+                            data.columns = data.iloc[0]
+                            data = data[1:]
 
-                        # Ensure all required columns are present
-                        for col in required_columns:
-                            if col not in data.columns:
-                                data[col] = None
+                            # Add 'File Name' column if missing
+                            if 'File Name' not in data.columns:
+                                data['File Name'] = file_name
 
-                        all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
-                    except Exception as e:
-                        st.warning(f"Error processing {file_name}: {e}")
+                            # Ensure all required columns are present
+                            for col in required_columns:
+                                if col not in data.columns:
+                                    data[col] = None
+
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                        except Exception as e:
+                            st.warning(f"Error processing {file_name}: {e}")
 
     return all_data
 
 def main():
     st.title("Live Data Tracking Dashboard")
 
-    uploaded_zip = st.file_uploader("Choose a zip folder containing Excel files", type="zip")
+    uploaded_zips = st.file_uploader("Choose one or more zip folders containing Excel files", type="zip", accept_multiple_files=True)
 
-    if st.button("Load Files") and uploaded_zip:
-        all_data = load_data_from_zip(uploaded_zip)
+    if st.button("Load Files") and uploaded_zips:
+        all_data = load_data_from_multiple_zips(uploaded_zips)
 
         if not all_data.empty:
             all_data['STATUS'] = all_data['STATUS'].str.upper()
@@ -59,6 +60,10 @@ def main():
                                                aggfunc='size').fillna(0)
 
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
+
+            # Add "Difference" column
+            user_summary['Difference'] = user_summary['Completed_Count'] - date_counts.sum(axis=1).values
+
             st.dataframe(user_summary, use_container_width=True)
 
             st.subheader("Status Overview")
@@ -88,7 +93,7 @@ def main():
         else:
             st.warning("No data found in the uploaded files.")
     else:
-        st.info("Please upload a zip folder to get started.")
+        st.info("Please upload one or more zip folders to get started.")
 
 if __name__ == "__main__":
     main()
