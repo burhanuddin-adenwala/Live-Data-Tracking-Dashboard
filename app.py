@@ -74,12 +74,18 @@ def main():
             )
             user_summary['Difference'] = user_summary['Completed_Count'] - date_sums.values
 
+            # Add Grand Total row
+            total_row = user_summary.select_dtypes(include='number').sum()
+            total_row['File Name'] = 'Grand Total'
+            total_row['ALLOCATED TO'] = '-'
+            user_summary = pd.concat([user_summary, pd.DataFrame([total_row])], ignore_index=True)
+
             # Display the summary table
             st.dataframe(user_summary, use_container_width=True)
 
             # Status Overview: Bar chart for Completed vs Pending Counts
             st.subheader("Status Overview")
-            status_counts = user_summary[['File Name', 'ALLOCATED TO', 'Completed_Count', 'Pending_Count']]
+            status_counts = user_summary[['File Name', 'ALLOCATED TO', 'Completed_Count', 'Pending_Count']].dropna()
             status_counts.set_index(['File Name', 'ALLOCATED TO']).plot(kind='bar', stacked=True, figsize=(10, 6))
             plt.title('Completed vs Pending Counts')
             plt.ylabel('Count')
