@@ -3,61 +3,36 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 import zipfile
-import os
-import gc
-
-# Function to process a single file and extract required columns
-def process_file(file, file_name, required_columns):
-    try:
-        workbook = load_workbook(file, data_only=True)
-        sheet = workbook.active
-        data = pd.DataFrame(sheet.values)
-        data.columns = data.iloc[0]
-        data = data[1:]
-
-        # Add 'File Name' column if missing
-        if 'File Name' not in data.columns:
-            data['File Name'] = file_name
-
-        # Ensure all required columns are present
-        for col in required_columns:
-            if col not in data.columns:
-                data[col] = None
-
-        return data[required_columns]
-    except Exception as e:
-        st.warning(f"Error processing {file_name}: {e}")
-        return pd.DataFrame(columns=required_columns)
 
 # Function to load data from multiple ZIP files
 def load_data_from_multiple_zips(uploaded_zips):
+    all_data = pd.DataFrame()
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
-    batch_data = []
-    temp_file_counter = 0
 
     for uploaded_zip in uploaded_zips:
         with zipfile.ZipFile(uploaded_zip) as z:
             for file_name in z.namelist():
                 if file_name.endswith(".xlsx"):
                     with z.open(file_name) as file:
-                        # Process each file individually
-                        data = process_file(file, file_name, required_columns)
-                        if not data.empty:
-                            # Save intermediate results to disk to reduce memory usage
-                            temp_file_path = f"temp_file_{temp_file_counter}.csv"
-                            data.to_csv(temp_file_path, index=False)
-                            batch_data.append(temp_file_path)
-                            temp_file_counter += 1
+                        try:
+                            workbook = load_workbook(file, data_only=True)
+                            sheet = workbook.active
+                            data = pd.DataFrame(sheet.values)
+                            data.columns = data.iloc[0]
+                            data = data[1:]
 
-                        # Free up memory after processing each file
-                        gc.collect()
+                            # Add 'File Name' column if missing
+                            if 'File Name' not in data.columns:
+                                data['File Name'] = file_name
 
-    # Load all intermediate files and concatenate
-    all_data = pd.concat((pd.read_csv(temp_file) for temp_file in batch_data), ignore_index=True)
+                            # Ensure all required columns are present
+                            for col in required_columns:
+                                if col not in data.columns:
+                                    data[col] = None
 
-    # Cleanup temporary files
-    for temp_file in batch_data:
-        os.remove(temp_file)
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                        except Exception as e:
+                            st.warning(f"Error processing {file_name}: {e}")
 
     return all_data
 
