@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import matplotlib.pyplot as plt
 from openpyxl import load_workbook
 import zipfile
 
@@ -51,7 +52,7 @@ def main():
             all_data['STATUS'] = all_data['STATUS'].str.upper()
 
             # Create a user summary
-            st.subheader("Detailed Data Overview")
+            st.subheader("Detailed User Information by File Name")
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).agg(
                 Total_Count=('PRODUCT_DESCRIPTION', 'count'),
                 Completed_Count=('STATUS', lambda x: (x == 'COMPLETED').sum()),
@@ -67,11 +68,11 @@ def main():
             # Merge date counts with user summary
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
 
-            # Calculate "Actual Pending"
+            # Calculate the "Difference" column
             date_sums = date_counts.sum(axis=1).reindex(
                 user_summary.set_index(['File Name', 'ALLOCATED TO']).index, fill_value=0
             )
-            user_summary['Actual Pending'] = user_summary['Pending_Count'] - date_sums.values
+            user_summary['Difference'] = user_summary['Completed_Count'] - date_sums.values
 
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
@@ -79,8 +80,37 @@ def main():
             total_row['ALLOCATED TO'] = '-'
             user_summary = pd.concat([user_summary, pd.DataFrame([total_row])], ignore_index=True)
 
-            # Display the complete table
+            # Display the summary table
             st.dataframe(user_summary, use_container_width=True)
+
+            # Status Overview: Bar chart for Completed vs Pending Counts
+            st.subheader("Status Overview")
+            status_counts = user_summary[['File Name', 'ALLOCATED TO', 'Completed_Count', 'Pending_Count']].dropna()
+            status_counts.set_index(['File Name', 'ALLOCATED TO']).plot(kind='bar', stacked=True, figsize=(10, 6))
+            plt.title('Completed vs Pending Counts')
+            plt.ylabel('Count')
+            plt.xlabel('File Name and User')
+            st.pyplot(plt)
+
+            # Status Distribution: Pie chart
+            st.subheader("Status Distribution")
+            status_distribution = all_data['STATUS'].value_counts()
+            plt.figure(figsize=(6, 6))
+            plt.pie(status_distribution, labels=status_distribution.index, autopct='%1.1f%%', startangle=90,
+                    colors=['#4CAF50', '#FF9800'])
+            plt.title("Distribution of Completed and Pending Tasks")
+            st.pyplot(plt)
+
+            # Total Product Count per User: Bar chart
+            st.subheader("Total Product Count per User")
+            product_counts = all_data.groupby('ALLOCATED TO')['PRODUCT_DESCRIPTION'].count().reset_index()
+            plt.figure(figsize=(10, 6))
+            plt.bar(product_counts['ALLOCATED TO'], product_counts['PRODUCT_DESCRIPTION'], color='#2196F3')
+            plt.title("Total Product Count per User")
+            plt.ylabel("Total Count")
+            plt.xticks(rotation=45)
+            st.pyplot(plt)
+
         else:
             st.warning("No data found in the uploaded files.")
     else:
