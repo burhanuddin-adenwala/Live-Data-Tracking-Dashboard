@@ -1,8 +1,7 @@
 import pandas as pd
 import streamlit as st
-import matplotlib.pyplot as plt
-from openpyxl import load_workbook
 import zipfile
+from openpyxl import load_workbook
 
 # Function to load data from multiple ZIP files
 def load_data_from_multiple_zips(uploaded_zips):
@@ -74,6 +73,9 @@ def main():
             )
             user_summary['Difference'] = user_summary['Completed_Count'] - date_sums.values
 
+            # Calculate the "Actual Pending" column
+            user_summary['Actual Pending'] = user_summary['Total_Count'] - date_sums.values
+
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
             total_row['File Name'] = 'Grand Total'
@@ -82,34 +84,6 @@ def main():
 
             # Display the summary table
             st.dataframe(user_summary, use_container_width=True)
-
-            # Status Overview: Bar chart for Completed vs Pending Counts
-            st.subheader("Status Overview")
-            status_counts = user_summary[['File Name', 'ALLOCATED TO', 'Completed_Count', 'Pending_Count']].dropna()
-            status_counts.set_index(['File Name', 'ALLOCATED TO']).plot(kind='bar', stacked=True, figsize=(10, 6))
-            plt.title('Completed vs Pending Counts')
-            plt.ylabel('Count')
-            plt.xlabel('File Name and User')
-            st.pyplot(plt)
-
-            # Status Distribution: Pie chart
-            st.subheader("Status Distribution")
-            status_distribution = all_data['STATUS'].value_counts()
-            plt.figure(figsize=(6, 6))
-            plt.pie(status_distribution, labels=status_distribution.index, autopct='%1.1f%%', startangle=90,
-                    colors=['#4CAF50', '#FF9800'])
-            plt.title("Distribution of Completed and Pending Tasks")
-            st.pyplot(plt)
-
-            # Total Product Count per User: Bar chart
-            st.subheader("Total Product Count per User")
-            product_counts = all_data.groupby('ALLOCATED TO')['PRODUCT_DESCRIPTION'].count().reset_index()
-            plt.figure(figsize=(10, 6))
-            plt.bar(product_counts['ALLOCATED TO'], product_counts['PRODUCT_DESCRIPTION'], color='#2196F3')
-            plt.title("Total Product Count per User")
-            plt.ylabel("Total Count")
-            plt.xticks(rotation=45)
-            st.pyplot(plt)
 
         else:
             st.warning("No data found in the uploaded files.")
