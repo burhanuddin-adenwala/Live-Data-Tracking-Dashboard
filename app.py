@@ -69,6 +69,10 @@ def main():
             all_data['DATE'] = pd.to_datetime(all_data['DATE'], errors='coerce')  # Ensure 'DATE' is datetime
             all_data.dropna(subset=['ALLOCATED TO', 'STATUS', 'DATE'], inplace=True)  # Drop rows with critical NaNs
 
+            if all_data.empty:
+                st.warning("No valid data found after cleaning.")
+                return
+
             try:
                 # Create a pivot table for date-wise counts
                 date_counts = all_data.pivot_table(
@@ -77,9 +81,11 @@ def main():
                     values='STATUS',
                     aggfunc='size'
                 ).fillna(0)
+
             except Exception as e:
                 logger.error(f"Error creating pivot table: {e}")
                 st.error(f"Error creating pivot table: {e}")
+                st.text(f"Data preview for debugging:\n{all_data.head()}")
                 return
 
             # Create a user summary
