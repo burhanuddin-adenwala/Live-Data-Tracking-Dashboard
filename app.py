@@ -16,8 +16,10 @@ def load_data_from_zip(zip_file):
 
     try:
         with zipfile.ZipFile(zip_file) as z:
+            logger.debug(f"Opened ZIP file: {zip_file.name}")
             for file_name in z.namelist():
                 if file_name.endswith(".xlsx"):
+                    logger.debug(f"Processing file: {file_name}")
                     with z.open(file_name) as file:
                         workbook = load_workbook(file, data_only=True)
                         sheet = workbook.active
@@ -36,6 +38,7 @@ def load_data_from_zip(zip_file):
 
                         # Append data to all_data
                         all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+            logger.debug(f"Loaded data from {zip_file.name}")
     except Exception as e:
         logger.error(f"Error processing zip file {zip_file}: {e}")
         st.warning(f"Error processing zip file {zip_file}: {e}")
@@ -56,13 +59,21 @@ def main():
     if st.button("Load Files") and uploaded_zips:
         all_data = pd.DataFrame()
 
-        for uploaded_zip in uploaded_zips:
-            # Load data from each zip file one by one to avoid memory overload
+        # Log progress of file loading
+        for idx, uploaded_zip in enumerate(uploaded_zips):
+            logger.debug(f"Starting to process ZIP file {idx+1}/{len(uploaded_zips)}: {uploaded_zip.name}")
             zip_data = load_data_from_zip(uploaded_zip)
             all_data = pd.concat([all_data, zip_data], ignore_index=True)
 
             # Free memory after processing each zip
             gc.collect()
+            logger.debug(f"Processed ZIP file {idx+1}/{len(uploaded_zips)}: {uploaded_zip.name}")
+
+        # Check if all_data is empty and return an error if so
+        if all_data.empty:
+            st.warning("No data found in the uploaded files.")
+            logger.error("No data found after processing all ZIP files.")
+            return
 
         if not all_data.empty:
             # Check required columns
@@ -70,6 +81,7 @@ def main():
             missing_columns = [col for col in required_columns if col not in all_data.columns]
             if missing_columns:
                 st.error(f"Missing columns in data: {missing_columns}")
+                logger.error(f"Missing columns in data: {missing_columns}")
                 return
 
             # Clean data
@@ -79,6 +91,7 @@ def main():
 
             if all_data.empty:
                 st.warning("No valid data found after cleaning.")
+                logger.warning("No valid data found after cleaning.")
                 return
 
             try:
@@ -124,6 +137,7 @@ def main():
             st.dataframe(user_summary, use_container_width=True)
         else:
             st.warning("No data found in the uploaded files.")
+
     else:
         st.info("Please upload one or more zip folders to get started.")
 
