@@ -14,35 +14,31 @@ def load_data_from_multiple_zips(uploaded_zips):
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
 
     for uploaded_zip in uploaded_zips:
-        try:
-            with zipfile.ZipFile(uploaded_zip) as z:
-                for file_name in z.namelist():
-                    if file_name.endswith(".xlsx"):
-                        try:
-                            with z.open(file_name) as file:
-                                workbook = load_workbook(file, data_only=True)
-                                sheet = workbook.active
-                                data = pd.DataFrame(sheet.values)
-                                data.columns = data.iloc[0]  # Set first row as header
-                                data = data[1:]  # Drop header row
+        with zipfile.ZipFile(uploaded_zip) as z:
+            for file_name in z.namelist():
+                if file_name.endswith(".xlsx"):
+                    try:
+                        with z.open(file_name) as file:
+                            workbook = load_workbook(file, data_only=True)
+                            sheet = workbook.active
+                            data = pd.DataFrame(sheet.values)
+                            data.columns = data.iloc[0]  # Set first row as header
+                            data = data[1:]  # Drop header row
 
-                                # Add 'File Name' column if missing
-                                if 'File Name' not in data.columns:
-                                    data['File Name'] = file_name
+                            # Add 'File Name' column if missing
+                            if 'File Name' not in data.columns:
+                                data['File Name'] = file_name
 
-                                # Ensure all required columns are present
-                                for col in required_columns:
-                                    if col not in data.columns:
-                                        data[col] = None
+                            # Ensure all required columns are present
+                            for col in required_columns:
+                                if col not in data.columns:
+                                    data[col] = None
 
-                                # Concatenate to the main DataFrame
-                                all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
-                        except Exception as e:
-                            logger.error(f"Error processing file {file_name}: {e}")
-                            st.warning(f"Skipping file {file_name} due to an error: {e}")
-        except zipfile.BadZipFile as e:
-            logger.error(f"Error opening zip file: {uploaded_zip.name} - {e}")
-            st.warning(f"Skipping zip file {uploaded_zip.name} due to an error: {e}")
+                            # Concatenate to the main DataFrame
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_name}: {e}")
+                        st.warning(f"Skipping file {file_name} due to an error: {e}")
     return all_data
 
 # Main application
