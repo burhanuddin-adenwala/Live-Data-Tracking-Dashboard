@@ -3,10 +3,35 @@ import streamlit as st
 import zipfile
 from openpyxl import load_workbook
 import logging
+import gc  # For garbage collection
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Function to process a single Excel file
+def process_excel_file(file, file_name, required_columns):
+    try:
+        workbook = load_workbook(file, data_only=True)
+        sheet = workbook.active
+        data = pd.DataFrame(sheet.values)
+        data.columns = data.iloc[0]  # Set first row as header
+        data = data[1:]  # Drop header row
+
+        # Add 'File Name' column if missing
+        if 'File Name' not in data.columns:
+            data['File Name'] = file_name
+
+        # Ensure all required columns are present
+        for col in required_columns:
+            if col not in data.columns:
+                data[col] = None
+
+        return data[required_columns]
+    except Exception as e:
+        logger.error(f"Error processing file {file_name}: {e}")
+        st.warning(f"Skipping file {file_name} due to an error: {e}")
+        return pd.DataFrame()  # Return empty DataFrame for failed files
 
 # Function to load data from multiple ZIP files
 def load_data_from_multiple_zips(uploaded_zips):
@@ -20,25 +45,14 @@ def load_data_from_multiple_zips(uploaded_zips):
                     if file_name.endswith(".xlsx"):
                         try:
                             with z.open(file_name) as file:
-                                workbook = load_workbook(file, data_only=True)
-                                sheet = workbook.active
-                                data = pd.DataFrame(sheet.values)
-                                data.columns = data.iloc[0]  # Set first row as header
-                                data = data[1:]  # Drop header row
-
-                                # Add 'File Name' column if missing
-                                if 'File Name' not in data.columns:
-                                    data['File Name'] = file_name
-
-                                # Ensure all required columns are present
-                                for col in required_columns:
-                                    if col not in data.columns:
-                                        data[col] = None
-
-                                # Concatenate to the main DataFrame
-                                all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                                data = process_excel_file(file, file_name, required_columns)
+                                if not data.empty:
+                                    all_data = pd.concat([all_data, data], ignore_index=True)
+                                # Release memory
+                                del data
+                                gc.collect()
                         except Exception as e:
-                            logger.error(f"Error processing file {file_name}: {e}")
+                            logger.error(f"Error opening file {file_name} in ZIP {uploaded_zip.name}: {e}")
                             st.warning(f"Skipping file {file_name} due to an error: {e}")
         except zipfile.BadZipFile as e:
             logger.error(f"Error opening zip file: {uploaded_zip.name}. Error: {e}")
@@ -46,6 +60,7 @@ def load_data_from_multiple_zips(uploaded_zips):
         except Exception as e:
             logger.error(f"Unexpected error processing zip file {uploaded_zip.name}: {e}")
             st.warning(f"An error occurred with zip file {uploaded_zip.name}: {e}")
+
     return all_data
 
 # Main application
