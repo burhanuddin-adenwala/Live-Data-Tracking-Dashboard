@@ -3,7 +3,7 @@ import streamlit as st
 import zipfile
 from openpyxl import load_workbook
 import logging
-import io  # Import io for byte stream handling
+import io
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -33,8 +33,13 @@ def main():
 
     if uploaded_zip:
         # Extract files from the ZIP
-        with zipfile.ZipFile(uploaded_zip, 'r') as z:
-            file_names = [f for f in z.namelist() if f.endswith(".xlsx")]
+        try:
+            with zipfile.ZipFile(uploaded_zip, 'r') as z:
+                file_names = [f for f in z.namelist() if f.endswith(".xlsx")]
+        except Exception as e:
+            logger.error(f"Error opening ZIP file: {e}")
+            st.error(f"Error opening ZIP file: {e}")
+            return
 
         if not file_names:
             st.warning("No Excel files found in the ZIP.")
@@ -49,14 +54,19 @@ def main():
 
         # Process each file one by one
         for i, file_name in enumerate(file_names):
-            with z.open(file_name) as file:
-                progress_text.text(f"Processing file {i + 1} of {len(file_names)}: {file_name}")
+            try:
+                with zipfile.ZipFile(uploaded_zip, 'r') as z:
+                    with z.open(file_name) as file:
+                        progress_text.text(f"Processing file {i + 1} of {len(file_names)}: {file_name}")
 
-                # Read the file bytes and process the Excel file
-                file_bytes = file.read()
-                data = process_excel_file(file_bytes)
-                if data is not None:
-                    all_data = pd.concat([all_data, data], ignore_index=True)
+                        # Read the file bytes and process the Excel file
+                        file_bytes = file.read()
+                        data = process_excel_file(file_bytes)
+                        if data is not None:
+                            all_data = pd.concat([all_data, data], ignore_index=True)
+            except Exception as e:
+                logger.error(f"Error processing {file_name}: {e}")
+                st.warning(f"Error processing file {file_name}: {e}")
 
             # Update progress bar
             progress_bar.progress((i + 1) / len(file_names))
