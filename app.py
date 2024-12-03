@@ -5,56 +5,45 @@ from openpyxl import load_workbook
 import logging
 
 # Set up logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Function to load data from multiple ZIP files
 def load_data_from_multiple_zips(uploaded_zips):
     all_data = pd.DataFrame()
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
-    
+
     for uploaded_zip in uploaded_zips:
-        try:
-            with zipfile.ZipFile(uploaded_zip) as z:
-                for file_name in z.namelist():
-                    if file_name.endswith(".xlsx"):
-                        try:
-                            with z.open(file_name) as file:
-                                workbook = load_workbook(file, data_only=True)
-                                sheet = workbook.active
-                                data = pd.DataFrame(sheet.values)
-                                data.columns = data.iloc[0]  # Set first row as header
-                                data = data[1:]  # Drop header row
+        with zipfile.ZipFile(uploaded_zip) as z:
+            for file_name in z.namelist():
+                if file_name.endswith(".xlsx"):
+                    try:
+                        with z.open(file_name) as file:
+                            workbook = load_workbook(file, data_only=True)
+                            sheet = workbook.active
+                            data = pd.DataFrame(sheet.values)
+                            data.columns = data.iloc[0]  # Set first row as header
+                            data = data[1:]  # Drop header row
 
-                                # Add 'File Name' column if missing
-                                if 'File Name' not in data.columns:
-                                    data['File Name'] = file_name
+                            # Add 'File Name' column if missing
+                            if 'File Name' not in data.columns:
+                                data['File Name'] = file_name
 
-                                # Ensure all required columns are present
-                                for col in required_columns:
-                                    if col not in data.columns:
-                                        data[col] = None
+                            # Ensure all required columns are present
+                            for col in required_columns:
+                                if col not in data.columns:
+                                    data[col] = None
 
-                                # Append to the main DataFrame
-                                all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
-                        except Exception as e:
-                            logger.error(f"Error processing file {file_name}: {e}")
-                            st.warning(f"Skipping file {file_name} in {uploaded_zip.name} due to an error: {e}")
-        except zipfile.BadZipFile as e:
-            logger.error(f"Corrupted ZIP file: {uploaded_zip.name}. Error: {e}")
-            st.warning(f"Skipping corrupted ZIP file: {uploaded_zip.name}")
-        except Exception as e:
-            logger.error(f"Unexpected error with ZIP file {uploaded_zip.name}: {e}")
-            st.warning(f"Unexpected issue with ZIP file: {uploaded_zip.name}")
-
+                            # Concatenate to the main DataFrame
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_name}: {e}")
+                        st.warning(f"Skipping file {file_name} due to an error: {e}")
     return all_data
 
 # Main application
 def main():
     st.title("Enhanced Live Data Tracking Dashboard")
-
-    # Set Streamlit's file upload size limit
-    st.set_option('server.maxUploadSize', 1024)  # Allow up to 1GB files
 
     # File uploader for multiple ZIP files
     uploaded_zips = st.file_uploader(
@@ -63,19 +52,12 @@ def main():
         accept_multiple_files=True
     )
 
-    # Limit the number of ZIP files processed at a time
-    max_files = 5
-    if uploaded_zips and len(uploaded_zips) > max_files:
-        st.warning(f"Please upload at most {max_files} ZIP files at a time.")
-        return
-
     if st.button("Load Files") and uploaded_zips:
-        st.info("Processing uploaded ZIP files... This may take a while.")
-        
         # Load data from ZIP files
         all_data = load_data_from_multiple_zips(uploaded_zips)
 
         if not all_data.empty:
+            # Check required columns
             required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
             missing_columns = [col for col in required_columns if col not in all_data.columns]
             if missing_columns:
@@ -103,6 +85,7 @@ def main():
             except Exception as e:
                 logger.error(f"Error creating pivot table: {e}")
                 st.error(f"Error creating pivot table: {e}")
+                st.text(f"Data preview for debugging:\n{all_data.head()}")
                 return
 
             # Create a user summary
