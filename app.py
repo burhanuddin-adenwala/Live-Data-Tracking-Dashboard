@@ -49,30 +49,31 @@ def load_data_from_zip(zip_file):
 def main():
     st.title("Enhanced Live Data Tracking Dashboard")
 
-    # File uploader for multiple ZIP files
-    uploaded_zips = st.file_uploader(
-        "Choose one or more zip folders containing Excel files",
+    # File uploader for single ZIP file at a time
+    uploaded_zip = st.file_uploader(
+        "Choose a zip folder containing Excel files",
         type="zip",
-        accept_multiple_files=True
+        accept_multiple_files=False
     )
 
-    if st.button("Load Files") and uploaded_zips:
+    if st.button("Load Files") and uploaded_zip:
         all_data = pd.DataFrame()
 
-        # Log progress of file loading
-        for idx, uploaded_zip in enumerate(uploaded_zips):
-            logger.debug(f"Starting to process ZIP file {idx+1}/{len(uploaded_zips)}: {uploaded_zip.name}")
-            zip_data = load_data_from_zip(uploaded_zip)
-            all_data = pd.concat([all_data, zip_data], ignore_index=True)
+        logger.debug("Starting to process ZIP file")
 
-            # Free memory after processing each zip
-            gc.collect()
-            logger.debug(f"Processed ZIP file {idx+1}/{len(uploaded_zips)}: {uploaded_zip.name}")
+        # Load data from the uploaded zip file
+        zip_data = load_data_from_zip(uploaded_zip)
+        all_data = pd.concat([all_data, zip_data], ignore_index=True)
+
+        # Free memory after processing
+        gc.collect()
+
+        logger.debug("Finished processing ZIP file")
 
         # Check if all_data is empty and return an error if so
         if all_data.empty:
-            st.warning("No data found in the uploaded files.")
-            logger.error("No data found after processing all ZIP files.")
+            st.warning("No data found in the uploaded file.")
+            logger.error("No data found after processing the ZIP file.")
             return
 
         if not all_data.empty:
@@ -139,7 +140,7 @@ def main():
             st.warning("No data found in the uploaded files.")
 
     else:
-        st.info("Please upload one or more zip folders to get started.")
+        st.info("Please upload a zip folder to get started.")
 
 if __name__ == "__main__":
     main()
