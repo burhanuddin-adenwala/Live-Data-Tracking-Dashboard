@@ -3,24 +3,25 @@ import streamlit as st
 import zipfile
 from openpyxl import load_workbook
 import logging
-import os
+import io  # Import io for byte stream handling
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Function to process a single Excel file
-def process_excel_file(file):
+# Function to process a single Excel file from a byte stream
+def process_excel_file(file_bytes):
     try:
-        workbook = load_workbook(file, data_only=True)
+        # Load workbook from byte stream
+        workbook = load_workbook(io.BytesIO(file_bytes), data_only=True)
         sheet = workbook.active
         data = pd.DataFrame(sheet.values)
         data.columns = data.iloc[0]  # Set first row as header
         data = data[1:]  # Drop header row
         return data
     except Exception as e:
-        logger.error(f"Error processing file {file.name}: {e}")
-        st.warning(f"Error processing file {file.name}: {e}")
+        logger.error(f"Error processing file: {e}")
+        st.warning(f"Error processing file: {e}")
         return None
 
 # Main application
@@ -51,8 +52,9 @@ def main():
             with z.open(file_name) as file:
                 progress_text.text(f"Processing file {i + 1} of {len(file_names)}: {file_name}")
 
-                # Process the Excel file and append the data
-                data = process_excel_file(file)
+                # Read the file bytes and process the Excel file
+                file_bytes = file.read()
+                data = process_excel_file(file_bytes)
                 if data is not None:
                     all_data = pd.concat([all_data, data], ignore_index=True)
 
