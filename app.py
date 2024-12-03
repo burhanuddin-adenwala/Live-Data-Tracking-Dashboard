@@ -8,6 +8,29 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+# Function to load data from a single Excel file
+def load_excel_file(file):
+    try:
+        # Open the workbook and unhide columns
+        workbook = load_workbook(file, data_only=True)
+        sheet = workbook.active
+
+        # Unhide all columns
+        for col_dim in sheet.column_dimensions.values():
+            col_dim.hidden = False
+
+        # Remove filters if applied
+        sheet.auto_filter.ref = None
+
+        # Convert the worksheet to a DataFrame
+        data = pd.DataFrame(sheet.values)
+        data.columns = data.iloc[0]  # Set first row as header
+        data = data[1:]  # Drop header row
+        return data
+    except Exception as e:
+        logger.error(f"Error loading Excel file: {e}")
+        raise
+
 # Function to load data from multiple ZIP files
 def load_data_from_multiple_zips(uploaded_zips):
     all_data = pd.DataFrame()
@@ -19,11 +42,8 @@ def load_data_from_multiple_zips(uploaded_zips):
                 if file_name.endswith(".xlsx"):
                     try:
                         with z.open(file_name) as file:
-                            workbook = load_workbook(file, data_only=True)
-                            sheet = workbook.active
-                            data = pd.DataFrame(sheet.values)
-                            data.columns = data.iloc[0]  # Set first row as header
-                            data = data[1:]  # Drop header row
+                            # Load the Excel file and process data
+                            data = load_excel_file(file)
 
                             # Add 'File Name' column if missing
                             if 'File Name' not in data.columns:
