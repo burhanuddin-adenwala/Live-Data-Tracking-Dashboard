@@ -3,42 +3,43 @@ import streamlit as st
 import zipfile
 from openpyxl import load_workbook
 import logging
+import gc
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-# Function to load data from multiple ZIP files
-def load_data_from_multiple_zips(uploaded_zips):
-    all_data = pd.DataFrame()
+# Function to load data from a single ZIP file
+def load_data_from_zip(zip_file):
     required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
+    all_data = pd.DataFrame()
 
-    for uploaded_zip in uploaded_zips:
-        with zipfile.ZipFile(uploaded_zip) as z:
+    try:
+        with zipfile.ZipFile(zip_file) as z:
             for file_name in z.namelist():
                 if file_name.endswith(".xlsx"):
-                    try:
-                        with z.open(file_name) as file:
-                            workbook = load_workbook(file, data_only=True)
-                            sheet = workbook.active
-                            data = pd.DataFrame(sheet.values)
-                            data.columns = data.iloc[0]  # Set first row as header
-                            data = data[1:]  # Drop header row
+                    with z.open(file_name) as file:
+                        workbook = load_workbook(file, data_only=True)
+                        sheet = workbook.active
+                        data = pd.DataFrame(sheet.values)
+                        data.columns = data.iloc[0]  # Set first row as header
+                        data = data[1:]  # Drop header row
 
-                            # Add 'File Name' column if missing
-                            if 'File Name' not in data.columns:
-                                data['File Name'] = file_name
+                        # Add 'File Name' column if missing
+                        if 'File Name' not in data.columns:
+                            data['File Name'] = file_name
 
-                            # Ensure all required columns are present
-                            for col in required_columns:
-                                if col not in data.columns:
-                                    data[col] = None
+                        # Ensure all required columns are present
+                        for col in required_columns:
+                            if col not in data.columns:
+                                data[col] = None
 
-                            # Concatenate to the main DataFrame
-                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
-                    except Exception as e:
-                        logger.error(f"Error processing file {file_name}: {e}")
-                        st.warning(f"Skipping file {file_name} due to an error: {e}")
+                        # Append data to all_data
+                        all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+    except Exception as e:
+        logger.error(f"Error processing zip file {zip_file}: {e}")
+        st.warning(f"Error processing zip file {zip_file}: {e}")
+
     return all_data
 
 # Main application
@@ -53,8 +54,15 @@ def main():
     )
 
     if st.button("Load Files") and uploaded_zips:
-        # Load data from ZIP files
-        all_data = load_data_from_multiple_zips(uploaded_zips)
+        all_data = pd.DataFrame()
+
+        for uploaded_zip in uploaded_zips:
+            # Load data from each zip file one by one to avoid memory overload
+            zip_data = load_data_from_zip(uploaded_zip)
+            all_data = pd.concat([all_data, zip_data], ignore_index=True)
+
+            # Free memory after processing each zip
+            gc.collect()
 
         if not all_data.empty:
             # Check required columns
