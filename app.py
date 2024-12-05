@@ -110,7 +110,7 @@ def main():
 
             # Create a user summary
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).agg(
-                Total_Count=('PRODUCT_DESCRIPTION', 'count'),
+                Total_Count=('PRODUCT_DESCRIPTION', lambda x: len(x.dropna())),  # Ensure accurate total count
                 Completed_Count=('STATUS', lambda x: (x == 'COMPLETED').sum()),
                 Pending_Count=('STATUS', lambda x: (x == 'PENDING').sum())
             ).reset_index()
@@ -118,12 +118,15 @@ def main():
             # Merge date counts with user summary
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
 
-            # Calculate additional columns
+            # Replicate Total Count for each user to reflect actual rows
+            user_summary['Replicated_Total'] = all_data.groupby(['File Name', 'ALLOCATED TO'])['PRODUCT_DESCRIPTION'].transform('count').values
+
+            # Add additional columns
             date_sums = date_counts.sum(axis=1).reindex(
                 user_summary.set_index(['File Name', 'ALLOCATED TO']).index, fill_value=0
             )
             user_summary['Difference'] = user_summary['Completed_Count'] - date_sums.values
-            user_summary['Actual Pending'] = user_summary['Total_Count'] - date_sums.values
+            user_summary['Actual Pending'] = user_summary['Replicated_Total'] - date_sums.values
 
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
