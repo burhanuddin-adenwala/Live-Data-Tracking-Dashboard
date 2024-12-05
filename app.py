@@ -73,6 +73,7 @@ def main():
                 st.error(f"Missing columns in data: {missing_columns}")
                 return
 
+            # Normalize columns
             all_data['STATUS'] = all_data['STATUS'].str.upper()
             all_data['DATE'] = pd.to_datetime(all_data['DATE'], errors='coerce')
             all_data.dropna(subset=['ALLOCATED TO', 'STATUS', 'DATE'], inplace=True)
@@ -81,25 +82,24 @@ def main():
                 st.warning("No valid data found after cleaning.")
                 return
 
-            # Total, Completed, and Pending counts
-            user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).agg(
-                Total_Count=('PRODUCT_DESCRIPTION', lambda x: x.count()),
-                Completed_Count=('STATUS', lambda x: (x == 'COMPLETED').sum()),
-                Pending_Count=('STATUS', lambda x: (x == 'PENDING').sum())
+            # Calculate totals, completed, and pending counts for each user and file
+            user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).apply(
+                lambda group: pd.Series({
+                    'Total_Count': group['PRODUCT_DESCRIPTION'].notna().sum(),
+                    'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),
+                    'Pending_Count': (group['STATUS'] == 'PENDING').sum()
+                })
             ).reset_index()
 
-            # Date-wise counts
-            date_counts = all_data.pivot_table(
-                index=['File Name', 'ALLOCATED TO'],
-                columns='DATE',
-                values='STATUS',
-                aggfunc=lambda x: (x == 'COMPLETED').sum()
-            ).fillna(0)
+            # Track date-wise completed counts
+            date_counts = all_data.groupby(['File Name', 'ALLOCATED TO', 'DATE']).apply(
+                lambda group: (group['STATUS'] == 'COMPLETED').sum()
+            ).unstack(fill_value=0)
 
             # Merge summaries
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
 
-            # Calculate Difference and Actual Pending
+            # Calculate difference and actual pending counts
             user_summary['Difference'] = user_summary['Completed_Count'] - user_summary.drop(
                 columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count']
             ).sum(axis=1)
