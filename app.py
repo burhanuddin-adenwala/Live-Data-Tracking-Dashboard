@@ -61,6 +61,69 @@ def load_data_from_multiple_zips(uploaded_zips):
                         st.warning(f"Skipping file {file_name} due to an error: {e}")
     return all_data
 
+import pandas as pd
+import streamlit as st
+import zipfile
+from openpyxl import load_workbook
+import logging
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+# Function to load data from a single Excel file
+def load_excel_file(file):
+    try:
+        # Open the workbook and unhide columns
+        workbook = load_workbook(file, data_only=True)
+        sheet = workbook.active
+
+        # Unhide all columns
+        for col_dim in sheet.column_dimensions.values():
+            col_dim.hidden = False
+
+        # Remove filters if applied
+        sheet.auto_filter.ref = None
+
+        # Convert the worksheet to a DataFrame
+        data = pd.DataFrame(sheet.values)
+        data.columns = data.iloc[0]  # Set first row as header
+        data = data[1:]  # Drop header row
+        return data
+    except Exception as e:
+        logger.error(f"Error loading Excel file: {e}")
+        raise
+
+# Function to load data from multiple ZIP files
+def load_data_from_multiple_zips(uploaded_zips):
+    all_data = pd.DataFrame()
+    required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
+
+    for uploaded_zip in uploaded_zips:
+        with zipfile.ZipFile(uploaded_zip) as z:
+            for file_name in z.namelist():
+                if file_name.endswith(".xlsx"):
+                    try:
+                        with z.open(file_name) as file:
+                            # Load the Excel file and process data
+                            data = load_excel_file(file)
+
+                            # Add 'File Name' column if missing
+                            if 'File Name' not in data.columns:
+                                data['File Name'] = file_name
+
+                            # Ensure all required columns are present
+                            for col in required_columns:
+                                if col not in data.columns:
+                                    data[col] = None
+
+                            # Concatenate to the main DataFrame
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_name}: {e}")
+                        st.warning(f"Skipping file {file_name} due to an error: {e}")
+    return all_data
+
 # Main application
 def main():
     st.title("Enhanced Live Data Tracking Dashboard")
