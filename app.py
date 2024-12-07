@@ -55,7 +55,7 @@ def load_data_from_multiple_zips(uploaded_zips):
 
 # Main application
 def main():
-    st.title("Enhanced Live Data Tracking Dashboard")
+    st.title("Enhanced EU Data Tracking Dashboard")
 
     uploaded_zips = st.file_uploader(
         "Choose one or more zip folders containing Excel files",
