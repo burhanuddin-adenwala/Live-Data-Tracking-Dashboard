@@ -37,6 +37,7 @@ def load_data_from_multiple_zips(uploaded_zips):
 
     for uploaded_zip in uploaded_zips:
         with zipfile.ZipFile(uploaded_zip) as z:
+            folder_name = uploaded_zip.name.split('/')[-1].replace('.zip', '')  # Extract folder name from zip
             for file_name in z.namelist():
                 if file_name.endswith(".xlsx"):
                     try:
@@ -47,7 +48,8 @@ def load_data_from_multiple_zips(uploaded_zips):
                             for col in required_columns:
                                 if col not in data.columns:
                                     data[col] = None
-                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
+                            data['Folder_Name'] = folder_name  # Add folder name as a new column
+                            all_data = pd.concat([all_data, data[required_columns + ['Folder_Name']]], ignore_index=True)
                     except Exception as e:
                         logger.error(f"Error processing file {file_name}: {e}")
                         st.warning(f"Skipping file {file_name} due to an error: {e}")
