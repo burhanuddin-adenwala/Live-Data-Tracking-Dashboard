@@ -37,7 +37,6 @@ def load_data_from_multiple_zips(uploaded_zips):
 
     for uploaded_zip in uploaded_zips:
         with zipfile.ZipFile(uploaded_zip) as z:
-            folder_name = uploaded_zip.name.split('/')[-1].replace('.zip', '')  # Extract folder name from zip
             for file_name in z.namelist():
                 if file_name.endswith(".xlsx"):
                     try:
@@ -48,8 +47,7 @@ def load_data_from_multiple_zips(uploaded_zips):
                             for col in required_columns:
                                 if col not in data.columns:
                                     data[col] = None
-                            data['Folder_Name'] = folder_name  # Add folder name as a new column
-                            all_data = pd.concat([all_data, data[required_columns + ['Folder_Name']]], ignore_index=True)
+                            all_data = pd.concat([all_data, data[required_columns]], ignore_index=True)
                     except Exception as e:
                         logger.error(f"Error processing file {file_name}: {e}")
                         st.warning(f"Skipping file {file_name} due to an error: {e}")
@@ -57,7 +55,7 @@ def load_data_from_multiple_zips(uploaded_zips):
 
 # Main application
 def main():
-    st.title("Enhanced Live Data Tracking Dashboard")
+    st.title("Enhanced EU Data Tracking Dashboard")
 
     uploaded_zips = st.file_uploader(
         "Choose one or more zip folders containing Excel files",
@@ -110,9 +108,6 @@ def main():
             user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary.drop(
                 columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count', 'Difference']
             ).sum(axis=1)
-
-            # Add Folder Name column
-            user_summary['Folder_Name'] = all_data['Folder_Name'].iloc[0]  # Assuming all rows come from the same folder
 
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
