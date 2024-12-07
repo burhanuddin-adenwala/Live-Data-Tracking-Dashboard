@@ -86,7 +86,7 @@ def main():
             # Calculate totals, completed, and pending counts for each user and file
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).apply(
                 lambda group: pd.Series({
-                    'Total_Count': group['PRODUCT_DESCRIPTION'].notna().sum(),
+                    'Total_Count': len(group),  # Count all rows for total
                     'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),
                     'Pending_Count': (group['STATUS'] == 'PENDING').sum()
                 })
