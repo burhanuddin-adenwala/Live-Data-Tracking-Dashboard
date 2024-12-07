@@ -99,6 +99,12 @@ def main():
             # Merge summaries
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
 
+            # Add Difference and Actual Pending columns
+            user_summary['Difference'] = user_summary['Completed_Count'] - user_summary.drop(
+                columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count']
+            ).sum(axis=1)
+            user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary['Completed_Count']
+
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
             total_row['File Name'] = 'Grand Total'
