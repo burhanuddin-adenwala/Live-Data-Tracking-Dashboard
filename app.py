@@ -64,7 +64,8 @@ def main():
     )
 
     if st.button("Load Files") and uploaded_zips:
-        all_data = load_data_from_multiple_zips(uploaded_zips)
+        with st.spinner("Processing files..."):
+            all_data = load_data_from_multiple_zips(uploaded_zips)
 
         if not all_data.empty:
             required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
@@ -113,6 +114,16 @@ def main():
 
             st.subheader("Detailed User Information by File Name")
             st.dataframe(user_summary, use_container_width=True)
+
+            # Visualization
+            st.subheader("Completion Status Overview")
+            status_counts = all_data['STATUS'].value_counts()
+            st.bar_chart(status_counts)
+
+            st.subheader("Date-wise Completion Overview")
+            st.line_chart(date_counts.T)
+
+            st.success("Data processed successfully!")
         else:
             st.warning("No data found in the uploaded files.")
     else:
