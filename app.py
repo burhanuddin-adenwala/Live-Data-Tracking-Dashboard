@@ -64,7 +64,8 @@ def main():
     )
 
     if st.button("Load Files") and uploaded_zips:
-        all_data = load_data_from_multiple_zips(uploaded_zips)
+        with st.spinner("Processing files..."):
+            all_data = load_data_from_multiple_zips(uploaded_zips)
 
         if not all_data.empty:
             required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
@@ -76,7 +77,6 @@ def main():
             # Normalize columns
             all_data['STATUS'] = all_data['STATUS'].str.upper()
             all_data['DATE'] = pd.to_datetime(all_data['DATE'], errors='coerce')
-            all_data.dropna(subset=['ALLOCATED TO', 'STATUS', 'DATE'], inplace=True)
 
             if all_data.empty:
                 st.warning("No valid data found after cleaning.")
@@ -85,9 +85,9 @@ def main():
             # Calculate totals, completed, and pending counts for each user and file
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).apply(
                 lambda group: pd.Series({
-                    'Total_Count': group['PRODUCT_DESCRIPTION'].notna().sum(),
-                    'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),
-                    'Pending_Count': (group['STATUS'] == 'PENDING').sum()
+                    'Total_Count': len(group),  # Total rows in the file
+                    'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),  # Rows marked as COMPLETED
+                    'Pending_Count': (group['STATUS'] == 'PENDING').sum()  # Rows marked as PENDING
                 })
             ).reset_index()
 
@@ -99,12 +99,6 @@ def main():
             # Merge summaries
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
 
-            # Add Difference and Actual Pending columns
-            user_summary['Difference'] = user_summary['Completed_Count'] - user_summary.drop(
-                columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count']
-            ).sum(axis=1)
-            user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary['Completed_Count']
-
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
             total_row['File Name'] = 'Grand Total'
@@ -113,6 +107,16 @@ def main():
 
             st.subheader("Detailed User Information by File Name")
             st.dataframe(user_summary, use_container_width=True)
+
+            # Visualization
+            st.subheader("Completion Status Overview")
+            status_counts = all_data['STATUS'].value_counts()
+            st.bar_chart(status_counts)
+
+            st.subheader("Date-wise Completion Overview")
+            st.line_chart(date_counts.T)
+
+            st.success("Data processed successfully!")
         else:
             st.warning("No data found in the uploaded files.")
     else:
