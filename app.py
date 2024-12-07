@@ -55,7 +55,7 @@ def load_data_from_multiple_zips(uploaded_zips):
 
 # Main application
 def main():
-    st.title("Enhanced EU Data Tracking Dashboard")
+    st.title("Enhanced Live Data Tracking Dashboard")
 
     uploaded_zips = st.file_uploader(
         "Choose one or more zip folders containing Excel files",
@@ -103,7 +103,11 @@ def main():
             user_summary['Difference'] = user_summary['Completed_Count'] - user_summary.drop(
                 columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count']
             ).sum(axis=1)
-            user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary['Completed_Count']
+
+            # Actual Pending count: Total count - sum of date counts (completed)
+            user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary.drop(
+                columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count', 'Difference']
+            ).sum(axis=1)
 
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
