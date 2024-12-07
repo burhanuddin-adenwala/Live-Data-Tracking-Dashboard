@@ -77,7 +77,6 @@ def main():
             # Normalize columns
             all_data['STATUS'] = all_data['STATUS'].str.upper()
             all_data['DATE'] = pd.to_datetime(all_data['DATE'], errors='coerce')
-            all_data.dropna(subset=['ALLOCATED TO', 'STATUS', 'DATE'], inplace=True)
 
             if all_data.empty:
                 st.warning("No valid data found after cleaning.")
@@ -86,9 +85,9 @@ def main():
             # Calculate totals, completed, and pending counts for each user and file
             user_summary = all_data.groupby(['File Name', 'ALLOCATED TO']).apply(
                 lambda group: pd.Series({
-                    'Total_Count': len(group),  # Count all rows for total
-                    'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),
-                    'Pending_Count': (group['STATUS'] == 'PENDING').sum()
+                    'Total_Count': len(group),  # Total rows in the file
+                    'Completed_Count': (group['STATUS'] == 'COMPLETED').sum(),  # Rows marked as COMPLETED
+                    'Pending_Count': (group['STATUS'] == 'PENDING').sum()  # Rows marked as PENDING
                 })
             ).reset_index()
 
@@ -99,12 +98,6 @@ def main():
 
             # Merge summaries
             user_summary = user_summary.merge(date_counts, on=['File Name', 'ALLOCATED TO'], how='left')
-
-            # Calculate difference and actual pending counts
-            user_summary['Difference'] = user_summary['Completed_Count'] - user_summary.drop(
-                columns=['File Name', 'ALLOCATED TO', 'Total_Count', 'Completed_Count', 'Pending_Count']
-            ).sum(axis=1)
-            user_summary['Actual Pending'] = user_summary['Total_Count'] - user_summary['Completed_Count']
 
             # Add Grand Total row
             total_row = user_summary.select_dtypes(include='number').sum()
