@@ -23,8 +23,14 @@ def load_excel_file(file):
 
         # Convert worksheet to DataFrame
         data = pd.DataFrame(sheet.values)
+
+        # Clean headers
         data.columns = data.iloc[0]  # Set first row as header
         data = data[1:]  # Drop header row
+
+        # Ensure unique column names
+        data.columns = pd.io.parsers.ParserBase({'names': data.columns})._maybe_dedup_names(data.columns)
+
         return data
     except Exception as e:
         logger.error(f"Error loading Excel file: {e}")
