@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import streamlit as st
 import zipfile
@@ -11,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Function to load data from a single Excel file
 def load_excel_file(file):
     try:
+        # Load the Excel workbook
         workbook = load_workbook(file, data_only=True)
         sheet = workbook.active
 
@@ -21,7 +23,7 @@ def load_excel_file(file):
         # Remove filters if applied
         sheet.auto_filter.ref = None
 
-        # Convert worksheet to DataFrame
+        # Convert the worksheet to DataFrame
         data = pd.DataFrame(sheet.values)
         data.columns = data.iloc[0]  # Set first row as header
         data = data[1:]  # Drop header row
@@ -42,8 +44,10 @@ def load_data_from_multiple_zips(uploaded_zips):
                     try:
                         with z.open(file_name) as file:
                             data = load_excel_file(file)
+                            # Ensure 'File Name' column is added to the DataFrame
                             if 'File Name' not in data.columns:
                                 data['File Name'] = file_name
+                            # Ensure required columns exist, if not add them
                             for col in required_columns:
                                 if col not in data.columns:
                                     data[col] = None
@@ -57,6 +61,7 @@ def load_data_from_multiple_zips(uploaded_zips):
 def main():
     st.title("Enhanced EU Data Tracking Dashboard")
 
+    # File uploader for ZIP files
     uploaded_zips = st.file_uploader(
         "Choose one or more zip folders containing Excel files",
         type="zip",
@@ -68,6 +73,7 @@ def main():
             all_data = load_data_from_multiple_zips(uploaded_zips)
 
         if not all_data.empty:
+            # Check for missing required columns
             required_columns = ['ALLOCATED TO', 'STATUS', 'PRODUCT_DESCRIPTION', 'DATE', 'File Name']
             missing_columns = [col for col in required_columns if col not in all_data.columns]
             if missing_columns:
